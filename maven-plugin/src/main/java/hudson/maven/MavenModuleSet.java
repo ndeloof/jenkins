@@ -29,7 +29,6 @@ import static hudson.model.ItemGroupMixIn.loadChildren;
 import hudson.CopyOnWrite;
 import hudson.EnvVars;
 import hudson.Extension;
-import hudson.ExtensionList;
 import hudson.FilePath;
 import hudson.Functions;
 import hudson.Indenter;
@@ -57,10 +56,16 @@ import hudson.model.SCMedItem;
 import hudson.model.Saveable;
 import hudson.model.TaskListener;
 import hudson.model.TopLevelItem;
+import hudson.mvn.DefaultGlobalSettingsProvider;
+import hudson.mvn.DefaultSettingsProvider;
+import hudson.mvn.FilePathSettingsProvider;
+import hudson.mvn.GlobalSettingsProvider;
+import hudson.mvn.GlobalSettingsProviderDescriptor;
+import hudson.mvn.SettingsProvider;
+import hudson.mvn.SettingsProviderDescriptor;
 import hudson.search.CollectionSearchIndex;
 import hudson.search.SearchIndexBuilder;
 import hudson.tasks.BuildStep;
-import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrappers;
 import hudson.tasks.Builder;
@@ -95,6 +100,8 @@ import javax.servlet.ServletException;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
+import org.apache.commons.beanutils.PropertyUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.math.NumberUtils;
 import org.apache.maven.model.building.ModelBuildingRequest;
 import org.kohsuke.stapler.HttpResponse;
@@ -268,11 +275,42 @@ public class MavenModuleSet extends AbstractMavenProject<MavenModuleSet,MavenMod
      * @since 1.481
      */
     private SettingsProvider settings = new DefaultSettingsProvider();
+    
+    /**
+     * @since 1.481
+     */
+    private GlobalSettingsProvider globalSettings = new DefaultGlobalSettingsProvider();
 
 
     public Object readResolve() {
         // backward compatibility
-        if (alternateSettings != null) this.settings = new FilePathSettingsProvider(alternateSettings);
+        if (alternateSettings != null) { 
+            this.settings = new FilePathSettingsProvider(alternateSettings);
+        } else if (StringUtils.isNotBlank(settingConfigId)) {
+            try {
+                Class<? extends SettingsProvider> legacySettings = Class.forName("org.jenkinsci.plugins.configfiles.maven.LegacySettingsProvider").asSubclass(SettingsProvider.class);
+                SettingsProvider newInstance = legacySettings.newInstance();
+                PropertyUtils.setProperty(newInstance, "settingConfigId", settingConfigId);
+                this.settings = newInstance;
+            } catch (Exception e) {
+                // FIXME how should we log this?
+                System.out.println("Please update the 'config-file-provider' plugin, the current version is not supported anymore! (settingConfigId="+settingConfigId+")");
+                e.printStackTrace();
+            }
+        }
+        
+        if (StringUtils.isNotBlank(globalSettingConfigId)) {
+            try {
+                Class<? extends GlobalSettingsProvider> legacySettings = Class.forName("org.jenkinsci.plugins.configfiles.maven.LegacyGlobalSettingsProvider").asSubclass(GlobalSettingsProvider.class);
+                GlobalSettingsProvider newInstance = legacySettings.newInstance();
+                PropertyUtils.setProperty(newInstance, "settingConfigId", globalSettingConfigId);
+                this.globalSettings = newInstance;
+            } catch (Exception e) {
+                // FIXME how should we log this?
+                System.out.println("Please update the 'config-file-provider' plugin, the current version is not supported anymore! (globalSettingConfigId="+globalSettingConfigId+")");
+                e.printStackTrace();
+            }
+        }
         return this;
     }
 
@@ -591,6 +629,13 @@ public class MavenModuleSet extends AbstractMavenProject<MavenModuleSet,MavenMod
      */
     public SettingsProvider getSettings() {
         return settings;
+    }
+
+    /**
+     * @since 1.481
+     */
+    public GlobalSettingsProvider getGlobalSettings() {
+        return globalSettings;
     }
 
     /**
@@ -1063,6 +1108,7 @@ public class MavenModuleSet extends AbstractMavenProject<MavenModuleSet,MavenMod
         goals = Util.fixEmpty(req.getParameter("goals").trim());
         mavenOpts = Util.fixEmpty(req.getParameter("mavenOpts").trim());
         settings = SettingsProvider.parseSettingsProvider(req);
+        globalSettings = GlobalSettingsProvider.parseSettingsProvider(req);
 
         mavenName = req.getParameter("maven_version");
         aggregatorStyleBuild = !req.hasParameter("maven.perModuleBuild");
@@ -1148,6 +1194,10 @@ public class MavenModuleSet extends AbstractMavenProject<MavenModuleSet,MavenMod
 
         public List<SettingsProviderDescriptor> getSettingsProviders() {
             return Jenkins.getInstance().getDescriptorList(SettingsProvider.class);
+        }
+        
+        public List<GlobalSettingsProviderDescriptor> getGlobalSettingsProviders() {
+            return Jenkins.getInstance().getDescriptorList(GlobalSettingsProvider.class);
         }
 
         public String getGlobalMavenOpts() {
