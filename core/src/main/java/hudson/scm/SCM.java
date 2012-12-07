@@ -283,6 +283,9 @@ public abstract class SCM implements Describable<SCM>, ExtensionPoint {
      *      The calculated {@link SCMRevisionState} is for the files checked out in this build. Never null.
      *      If {@link #requiresWorkspaceForPolling()} returns true, Hudson makes sure that the workspace of this
      *      build is available and accessible by the callee.
+     * @param node
+     *      The {@link Node} where the polling will take place. SCM implementation can use it to resolve
+     *      {@link hudson.tools.ToolInstallation}s that are {@link hudson.slaves.NodeSpecific}.
      * @param launcher
      *      Abstraction of the machine where the polling will take place. If SCM declares
      *      that {@linkplain #requiresWorkspaceForPolling() the polling doesn't require a workspace},
@@ -296,16 +299,23 @@ public abstract class SCM implements Describable<SCM>, ExtensionPoint {
      *      interruption is usually caused by the user aborting the computation.
      *      this exception should be simply propagated all the way up. 
      */
-    public abstract SCMRevisionState calcRevisionsFromBuild(AbstractBuild<?,?> build, Launcher launcher, TaskListener listener) throws IOException, InterruptedException;
+    public abstract SCMRevisionState calcRevisionsFromBuild(AbstractBuild<?,?> build, Node node, Launcher launcher, TaskListener listener) throws IOException, InterruptedException;
+
+    /**
+     * @deprecated use {@link #calcRevisionsFromBuild(hudson.model.AbstractBuild, hudson.model.Node, hudson.Launcher, hudson.model.TaskListener)}
+     */
+    public SCMRevisionState calcRevisionsFromBuild(AbstractBuild<?,?> build, Launcher launcher, TaskListener listener) throws IOException, InterruptedException {
+        return calcRevisionsFromBuild(build, launcher.getComputer().getNode(), launcher, listener);
+    }
 
     /**
      * A pointless function to work around what appears to be a HotSpot problem. See JENKINS-5756 and bug 6933067
      * on BugParade for more details.
      */
-    public SCMRevisionState _calcRevisionsFromBuild(AbstractBuild<?, ?> build, Launcher launcher, TaskListener listener) throws IOException, InterruptedException {
-        return calcRevisionsFromBuild(build, launcher, listener);
+    private SCMRevisionState _calcRevisionsFromBuild(AbstractBuild<?, ?> build, Node node, Launcher launcher, TaskListener listener) throws IOException, InterruptedException {
+        return calcRevisionsFromBuild(build, node, launcher, listener);
     }
-    
+
     /**
      * Compares the current state of the remote repository against the given baseline {@link SCMRevisionState}.
      *
@@ -322,6 +332,9 @@ public abstract class SCM implements Describable<SCM>, ExtensionPoint {
      *
      * @param project
      *      The project to check for updates
+     * @param node
+     *      The {@link Node} where the polling will take place. SCM implementation can use it to resolve
+     *      {@link hudson.tools.ToolInstallation}s that are {@link hudson.slaves.NodeSpecific}.
      * @param launcher
      *      Abstraction of the machine where the polling will take place. If SCM declares
      *      that {@linkplain #requiresWorkspaceForPolling() the polling doesn't require a workspace}, this parameter is null.
@@ -346,31 +359,45 @@ public abstract class SCM implements Describable<SCM>, ExtensionPoint {
      *      interruption is usually caused by the user aborting the computation.
      *      this exception should be simply propagated all the way up.
      */
-    protected abstract PollingResult compareRemoteRevisionWith(AbstractProject<?,?> project, Launcher launcher, FilePath workspace, TaskListener listener, SCMRevisionState baseline) throws IOException, InterruptedException;
+    protected abstract PollingResult compareRemoteRevisionWith(AbstractProject<?,?> project, Node node, Launcher launcher, FilePath workspace, TaskListener listener, SCMRevisionState baseline) throws IOException, InterruptedException;
+
+    /**
+     * @deprecated use {@link #compareRemoteRevisionWith(hudson.model.AbstractProject, hudson.Launcher, hudson.FilePath, hudson.model.TaskListener, SCMRevisionState)}
+     */
+    protected PollingResult compareRemoteRevisionWith(AbstractProject<?,?> project, Launcher launcher, FilePath workspace, TaskListener listener, SCMRevisionState baseline) throws IOException, InterruptedException {
+        return compareRemoteRevisionWith(project, launcher.getComputer().getNode(), launcher, workspace, listener, baseline);
+    }
+
 
     /**
      * A pointless function to work around what appears to be a HotSpot problem. See JENKINS-5756 and bug 6933067
      * on BugParade for more details.
      */
-    private PollingResult _compareRemoteRevisionWith(AbstractProject<?, ?> project, Launcher launcher, FilePath workspace, TaskListener listener, SCMRevisionState baseline2) throws IOException, InterruptedException {
-        return compareRemoteRevisionWith(project, launcher, workspace, listener, baseline2);
+    private PollingResult _compareRemoteRevisionWith(AbstractProject<?, ?> project, Node node, Launcher launcher, FilePath workspace, TaskListener listener, SCMRevisionState baseline2) throws IOException, InterruptedException {
+        return compareRemoteRevisionWith(project, node, launcher, workspace, listener, baseline2);
+    }
+
+    /**
+     * poll SCM by comparing workspace baseline with remote revision
+     * @since 1.494
+     */
+    public PollingResult poll(AbstractProject<?,?> project, Node node, Launcher launcher, FilePath workspace, TaskListener listener, SCMRevisionState baseline) throws IOException, InterruptedException {
+        SCMRevisionState baseline2;
+        if (baseline!=SCMRevisionState.NONE) {
+            baseline2 = baseline;
+        } else {
+            baseline2 = _calcRevisionsFromBuild(project.getLastBuild(), node, launcher, listener);
+        }
+        return _compareRemoteRevisionWith(project, node, launcher, workspace, listener, baseline2);
     }
 
     /**
      * Convenience method for the caller to handle the backward compatibility between pre 1.345 SCMs.
+     * @deprecated use {@link #poll(hudson.model.AbstractProject, hudson.model.Node, hudson.Launcher, hudson.FilePath, hudson.model.TaskListener, SCMRevisionState)}
      */
     public final PollingResult poll(AbstractProject<?,?> project, Launcher launcher, FilePath workspace, TaskListener listener, SCMRevisionState baseline) throws IOException, InterruptedException {
         if (is1_346OrLater()) {
-            // This is to work around HUDSON-5827 in a general way.
-            // don't let the SCM.compareRemoteRevisionWith(...) see SCMRevisionState that it didn't produce.
-            SCMRevisionState baseline2;
-            if (baseline!=SCMRevisionState.NONE) {
-                baseline2 = baseline;
-            } else {
-                baseline2 = _calcRevisionsFromBuild(project.getLastBuild(), launcher, listener);
-            }
-
-            return _compareRemoteRevisionWith(project, launcher, workspace, listener, baseline2);
+            return poll(project, launcher.getComputer().getNode(), launcher, workspace, listener, baseline);
         } else {
             return pollChanges(project,launcher,workspace,listener) ? PollingResult.SIGNIFICANT : PollingResult.NO_CHANGES;
         }
@@ -622,4 +649,5 @@ public abstract class SCM implements Describable<SCM>, ExtensionPoint {
 
         return r;
     }
+
 }

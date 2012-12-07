@@ -1457,7 +1457,8 @@ public abstract class AbstractProject<P extends AbstractProject<P,R>,R extends A
                     return BUILD_NOW;
                 }
             } else {
-                WorkspaceList l = lb.getBuiltOn().toComputer().getWorkspaceList();
+                Node node = lb.getBuiltOn();
+                WorkspaceList l = node.toComputer().getWorkspaceList();
                 // if doing non-concurrent build, acquire a workspace in a way that causes builds to block for this workspace.
                 // this prevents multiple workspaces of the same job --- the behavior of Hudson < 1.319.
                 //
@@ -1465,12 +1466,12 @@ public abstract class AbstractProject<P extends AbstractProject<P,R>,R extends A
                 // so better throughput is achieved over time (modulo the initial cost of creating that many workspaces)
                 // by having multiple workspaces
                 WorkspaceList.Lease lease = l.acquire(ws, !concurrentBuild);
-                Launcher launcher = ws.createLauncher(listener).decorateByEnv(getEnvironment(lb.getBuiltOn(),listener));
+                Launcher launcher = ws.createLauncher(listener).decorateByEnv(getEnvironment(node,listener));
                 try {
                     LOGGER.fine("Polling SCM changes of " + getName());
                     if (pollingBaseline==null) // see NOTE-NO-BASELINE above
                         calcPollingBaseline(lb,launcher,listener);
-                    PollingResult r = scm.poll(this, launcher, ws, listener, pollingBaseline);
+                    PollingResult r = scm.poll(this, node, launcher, ws, listener, pollingBaseline);
                     pollingBaseline = r.remote;
                     return r;
                 } finally {
