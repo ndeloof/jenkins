@@ -66,6 +66,8 @@ import hudson.model.queue.CauseOfBlockage.BecauseNodeIsBusy;
 import hudson.model.queue.WorkUnitContext;
 import hudson.security.AccessControlled;
 import hudson.security.Permission;
+import hudson.slaves.Cloud;
+import hudson.slaves.NodeProvisioner;
 import jenkins.security.QueueItemAuthenticatorProvider;
 import jenkins.util.Timer;
 import hudson.triggers.SafeTimerTask;
@@ -1508,6 +1510,20 @@ public class Queue extends ResourceController implements Saveable {
 
                 String taskDisplayName = p.task.getFullDisplayName();
 
+                final Label label = p.getAssignedLabel();
+                // If item's label is marked for OneShotExecutor, ensure a node has been provisionned for it
+                if (label != null
+                        && label.getAction(OneShotExecutor.class) != null       // this label is dedicater to docker-like executors
+                        && p.getAction(ExclusiveAssignedNode.class) == null) {  // this task doesn't yet have a node assigned
+
+                    for (Cloud cloud : label.getClouds()) {
+                        final NodeProvisioner.PlannedNode node = cloud.provision(label, 1).iterator().next();
+                        p.addAction(new ExclusiveAssignedNode(node.displayName));
+                        break;
+                    }
+
+                }
+
                 if (p.task instanceof FlyweightTask) {
                     Runnable r = makeFlyWeightTaskBuildable(new BuildableItem(p));
                     if (r != null) {
@@ -1517,7 +1533,6 @@ public class Queue extends ResourceController implements Saveable {
                         updateSnapshot();
                     }
                 } else {
-
                     List<JobOffer> candidates = new ArrayList<JobOffer>(parked.size());
                     for (JobOffer j : parked.values()) {
                         if (j.canTake(p)) {
