@@ -32,6 +32,7 @@ import hudson.model.TaskListener;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.nio.charset.Charset;
 import java.util.List;
 
 /**
@@ -83,6 +84,11 @@ public final class BuildListenerAdapter implements BuildListener {
 
     @Override public PrintWriter fatalError(String format, Object... args) {
         return delegate.fatalError(format, args);
+    }
+
+    @Override
+    public Charset getCharset() {
+        return delegate.getCharset();
     }
 
     public static BuildListener wrap(TaskListener l) {

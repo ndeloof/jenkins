@@ -32,6 +32,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.Serializable;
+import java.nio.charset.Charset;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -65,6 +66,11 @@ public class LogTaskListener extends AbstractTaskListener implements Serializabl
 
     public PrintWriter fatalError(String format, Object... args) {
         return delegate.fatalError(format, args);
+    }
+
+    @Override
+    public Charset getCharset() {
+        return delegate.getCharset();
     }
 
     public void annotate(ConsoleNote ann) {

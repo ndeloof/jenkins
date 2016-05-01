@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.Serializable;
+import java.nio.charset.Charset;
 
 /**
  * Receives events that happen during some lengthy operation
@@ -111,4 +112,6 @@ public interface TaskListener extends Serializable {
      * {@link TaskListener} that discards the output.
      */
     TaskListener NULL = new StreamTaskListener(new NullStream());
+
+    Charset getCharset();
 }

@@ -816,7 +816,7 @@ public abstract class Launcher {
                     ps.reverseStdin ?LocalProc.SELFPUMP_INPUT:ps.stdin,
                     ps.reverseStdout?LocalProc.SELFPUMP_OUTPUT:ps.stdout,
                     ps.reverseStderr?LocalProc.SELFPUMP_OUTPUT:ps.stderr,
-                    toFile(ps.pwd));
+                    toFile(ps.pwd), listener.getCharset());
         }
 
         private File toFile(FilePath f) {

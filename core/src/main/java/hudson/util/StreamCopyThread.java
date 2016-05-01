@@ -25,7 +25,10 @@ package hudson.util;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.nio.charset.Charset;
 
 /**
  * {@link Thread} that copies {@link InputStream} to {@link OutputStream}.
@@ -33,29 +36,36 @@ import java.io.OutputStream;
  * @author Kohsuke Kawaguchi
  */
 public class StreamCopyThread extends Thread {
-    private final InputStream in;
-    private final OutputStream out;
+    private final InputStreamReader in;
+    private final OutputStreamWriter out;
     private final boolean closeOut;
 
-    public StreamCopyThread(String threadName, InputStream in, OutputStream out, boolean closeOut) {
+    public StreamCopyThread(String threadName, InputStream in, OutputStream out, boolean closeOut, Charset charset) {
         super(threadName);
-        this.in = in;
+        this.in = new InputStreamReader(in, Charset.defaultCharset());
         if (out == null) {
             throw new NullPointerException("out is null");
         }
-        this.out = out;
+
+        this.out = charset != null ?
+                new OutputStreamWriter(out, charset):
+                new OutputStreamWriter(out);
         this.closeOut = closeOut;
     }
 
     public StreamCopyThread(String threadName, InputStream in, OutputStream out) {
-        this(threadName,in,out,false);
+        this(threadName,in,out,false, Charset.defaultCharset());
+    }
+
+    public StreamCopyThread(String threadName, InputStream in, OutputStream out, Charset charset) {
+        this(threadName, in, out, false, charset);
     }
 
     @Override
     public void run() {
         try {
             try {
-                byte[] buf = new byte[8192];
+                char[] buf = new char[8192];
                 int len;
                 while ((len = in.read(buf)) >= 0)
                     out.write(buf, 0, len);

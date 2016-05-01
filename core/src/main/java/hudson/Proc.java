@@ -38,6 +38,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
@@ -166,7 +167,7 @@ public abstract class Proc {
             latch.countDown();
         }
     }
-    
+
     /**
      * Locally launched process.
      */
@@ -209,9 +210,13 @@ public abstract class Proc {
          *      null to redirect stderr to stdout.
          */
         public LocalProc(String[] cmd,String[] env,InputStream in,OutputStream out,OutputStream err,File workDir) throws IOException {
+            this(cmd, env, in, out, err, workDir, Charset.defaultCharset());
+        }
+
+        public LocalProc(String[] cmd,String[] env,InputStream in,OutputStream out,OutputStream err,File workDir,Charset charset) throws IOException {
             this( calcName(cmd),
                   stderr(environment(new ProcessBuilder(cmd),env).directory(workDir), err==null || err== SELFPUMP_OUTPUT),
-                  in, out, err );
+                  in, out, err, charset );
         }
 
         private static ProcessBuilder stderr(ProcessBuilder pb, boolean redirectError) {
@@ -231,7 +236,7 @@ public abstract class Proc {
             return pb;
         }
 
-        private LocalProc( String name, ProcessBuilder procBuilder, InputStream in, OutputStream out, OutputStream err ) throws IOException {
+        private LocalProc( String name, ProcessBuilder procBuilder, InputStream in, OutputStream out, OutputStream err,Charset charset ) throws IOException {
             Logger.getLogger(Proc.class.getName()).log(Level.FINE, "Running: {0}", name);
             this.name = name;
             this.out = out;
@@ -244,7 +249,7 @@ public abstract class Proc {
                 stdout = procInputStream;
                 copier = null;
             } else {
-                copier = new StreamCopyThread(name+": stdout copier", procInputStream, out);
+                copier = new StreamCopyThread(name+": stdout copier", procInputStream, out, charset);
                 copier.start();
                 stdout = null;
             }
@@ -268,7 +273,7 @@ public abstract class Proc {
                     copier2 = null;
                 } else {
                     stderr = null;
-                    copier2 = new StreamCopyThread(name+": stderr copier", procErrorStream, err);
+                    copier2 = new StreamCopyThread(name+": stderr copier", procErrorStream, err, charset);
                     copier2.start();
                 }
             } else {

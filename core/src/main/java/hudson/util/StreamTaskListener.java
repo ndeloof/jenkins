@@ -56,15 +56,14 @@ import org.kohsuke.stapler.framework.io.WriterOutputStream;
  */
 public class StreamTaskListener extends AbstractTaskListener implements Serializable, Closeable {
     private PrintStream out;
-    private Charset charset;
 
     /**
-     * @deprecated as of 1.349
-     *      The caller should use {@link #StreamTaskListener(OutputStream, Charset)} to pass in
-     *      the charset and output stream separately, so that this class can handle encoding correctly,
-     *      or use {@link #fromStdout()} or {@link #fromStderr()}.
+     * Encoding used for the log content.
+     * Used before 2.1 as Jenkins was storing build log with build node's encoding.
+     * Starting with 2.1 charset conversion is done on the fly so logs are stored on master with local encoding.
      */
-    @Deprecated
+    private Charset charset;
+
     public StreamTaskListener(PrintStream out) {
         this(out,null);
     }
@@ -74,11 +73,10 @@ public class StreamTaskListener extends AbstractTaskListener implements Serializ
     }
 
     public StreamTaskListener(OutputStream out, Charset charset) {
+        if (charset == null)
+            charset = Charset.defaultCharset();
         try {
-            if (charset == null)
-                this.out = (out instanceof PrintStream) ? (PrintStream)out : new PrintStream(out, false);
-            else
-                this.out = new PrintStream(out, false, charset.name());
+            this.out = new PrintStream(out, false, charset.name());
             this.charset = charset;
         } catch (UnsupportedEncodingException e) {
             // it's not very pretty to do this, but otherwise we'd have to touch too many call sites.
@@ -132,6 +130,11 @@ public class StreamTaskListener extends AbstractTaskListener implements Serializ
 
     public static StreamTaskListener fromStderr() {
         return new StreamTaskListener(System.err,Charset.defaultCharset());
+    }
+
+    @Override
+    public Charset getCharset() {
+        return charset;
     }
 
     public PrintStream getLogger() {
