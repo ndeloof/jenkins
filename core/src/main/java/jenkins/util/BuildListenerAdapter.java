@@ -27,6 +27,7 @@ package jenkins.util;
 import hudson.console.ConsoleNote;
 import hudson.model.BuildListener;
 import hudson.model.Cause;
+import hudson.model.CharsetTaskListener;
 import hudson.model.Result;
 import hudson.model.TaskListener;
 import java.io.IOException;
@@ -41,7 +42,7 @@ import java.util.List;
  *
  * @since 1.577
  */
-public final class BuildListenerAdapter implements BuildListener {
+public final class BuildListenerAdapter implements BuildListener, CharsetTaskListener {
 
     private final TaskListener delegate;
 
@@ -88,7 +89,10 @@ public final class BuildListenerAdapter implements BuildListener {
 
     @Override
     public Charset getCharset() {
-        return delegate.getCharset();
+        if (delegate instanceof CharsetTaskListener)
+            return ((CharsetTaskListener) delegate).getCharset();
+        else
+            return Charset.defaultCharset();
     }
 
     public static BuildListener wrap(TaskListener l) {

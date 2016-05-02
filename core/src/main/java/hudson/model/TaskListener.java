@@ -113,5 +113,4 @@ public interface TaskListener extends Serializable {
      */
     TaskListener NULL = new StreamTaskListener(new NullStream());
 
-    Charset getCharset();
 }

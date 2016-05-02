@@ -25,6 +25,7 @@
 package hudson.util;
 
 import hudson.console.ConsoleNote;
+import hudson.model.CharsetTaskListener;
 import hudson.model.TaskListener;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -42,7 +43,7 @@ import java.util.logging.Logger;
  */
 public class LogTaskListener extends AbstractTaskListener implements Serializable {
     
-    private final TaskListener delegate;
+    private final CharsetTaskListener delegate;
 
     public LogTaskListener(Logger logger, Level level) {
         delegate = new StreamTaskListener(new LogOutputStream(logger, level, new Throwable().getStackTrace()[1]));
