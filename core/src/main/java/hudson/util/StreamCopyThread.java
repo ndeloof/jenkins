@@ -23,12 +23,17 @@
  */
 package hudson.util;
 
+import sun.nio.cs.StreamDecoder;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.Reader;
+import java.io.Writer;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 /**
  * {@link Thread} that copies {@link InputStream} to {@link OutputStream}.
@@ -36,29 +41,23 @@ import java.nio.charset.Charset;
  * @author Kohsuke Kawaguchi
  */
 public class StreamCopyThread extends Thread {
-    private final InputStreamReader in;
-    private final OutputStreamWriter out;
+    private final Reader in;
+    private final Writer out;
     private final boolean closeOut;
 
-    public StreamCopyThread(String threadName, InputStream in, OutputStream out, boolean closeOut, Charset charset) {
+    public StreamCopyThread(String threadName, InputStream in, OutputStream out, boolean closeOut) {
         super(threadName);
         this.in = new InputStreamReader(in, Charset.defaultCharset());
         if (out == null) {
             throw new NullPointerException("out is null");
         }
 
-        this.out = charset != null ?
-                new OutputStreamWriter(out, charset):
-                new OutputStreamWriter(out);
+        this.out = new OutputStreamWriter(out, StandardCharsets.UTF_8);
         this.closeOut = closeOut;
     }
 
     public StreamCopyThread(String threadName, InputStream in, OutputStream out) {
-        this(threadName,in,out,false, Charset.defaultCharset());
-    }
-
-    public StreamCopyThread(String threadName, InputStream in, OutputStream out, Charset charset) {
-        this(threadName, in, out, false, charset);
+        this(threadName,in,out,false);
     }
 
     @Override

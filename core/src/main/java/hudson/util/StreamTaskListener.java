@@ -42,6 +42,7 @@ import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.kohsuke.stapler.framework.io.WriterOutputStream;
@@ -65,34 +66,34 @@ public class StreamTaskListener extends AbstractTaskListener implements Serializ
     private Charset charset;
 
     public StreamTaskListener(PrintStream out) {
-        this(out,null);
+        this((OutputStream)out);
     }
 
     public StreamTaskListener(OutputStream out) {
-        this(out,null);
-    }
-
-    public StreamTaskListener(OutputStream out, Charset charset) {
-        if (charset == null)
-            charset = Charset.defaultCharset();
         try {
-            this.out = new PrintStream(out, false, charset.name());
-            this.charset = charset;
+            this.charset = StandardCharsets.UTF_8;
+            this.out = new PrintStream(out, false, this.charset.name());
         } catch (UnsupportedEncodingException e) {
             // it's not very pretty to do this, but otherwise we'd have to touch too many call sites.
             throw new Error(e);
         }
     }
 
-    public StreamTaskListener(File out) throws IOException {
-        this(out,null);
+    /** @deprecated charset is forced to UTF-8 */
+    public StreamTaskListener(OutputStream out, Charset charset) {
+        this(out);
     }
 
-    public StreamTaskListener(File out, Charset charset) throws IOException {
+    public StreamTaskListener(File out) throws IOException {
         // don't do buffering so that what's written to the listener
         // gets reflected to the file immediately, which can then be
         // served to the browser immediately
-        this(new FileOutputStream(out),charset);
+        this(new FileOutputStream(out));
+    }
+
+    /** @deprecated charset is forced to UTF-8 */
+    public StreamTaskListener(File out, Charset charset) throws IOException {
+        this(out);
     }
 
     /**
@@ -100,15 +101,19 @@ public class StreamTaskListener extends AbstractTaskListener implements Serializ
      *
      * @param out     the file.
      * @param append  if {@code true}, then output will be written to the end of the file rather than the beginning.
-     * @param charset if non-{@code null} then the charset to use when writing.
      * @throws IOException if the file could not be opened.
-     * @since 1.651
+     * @since 2.1
      */
-    public StreamTaskListener(File out, boolean append, Charset charset) throws IOException {
+    public StreamTaskListener(File out, boolean append) throws IOException {
         // don't do buffering so that what's written to the listener
         // gets reflected to the file immediately, which can then be
         // served to the browser immediately
-        this(new FileOutputStream(out, append),charset);
+        this(new FileOutputStream(out, append));
+    }
+
+     /** @deprecated charset is forced to UTF-8 */
+    public StreamTaskListener(File out, boolean append, Charset charset) throws IOException {
+        this(out, append);
     }
 
     public StreamTaskListener(Writer w) throws IOException {
@@ -125,16 +130,11 @@ public class StreamTaskListener extends AbstractTaskListener implements Serializ
     }
 
     public static StreamTaskListener fromStdout() {
-        return new StreamTaskListener(System.out,Charset.defaultCharset());
+        return new StreamTaskListener(System.out);
     }
 
     public static StreamTaskListener fromStderr() {
-        return new StreamTaskListener(System.err,Charset.defaultCharset());
-    }
-
-    @Override
-    public Charset getCharset() {
-        return charset;
+        return new StreamTaskListener(System.err);
     }
 
     public PrintStream getLogger() {

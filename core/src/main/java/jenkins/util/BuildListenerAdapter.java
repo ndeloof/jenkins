@@ -27,13 +27,12 @@ package jenkins.util;
 import hudson.console.ConsoleNote;
 import hudson.model.BuildListener;
 import hudson.model.Cause;
-import hudson.model.CharsetTaskListener;
 import hudson.model.Result;
 import hudson.model.TaskListener;
+
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
-import java.nio.charset.Charset;
 import java.util.List;
 
 /**
@@ -42,7 +41,7 @@ import java.util.List;
  *
  * @since 1.577
  */
-public final class BuildListenerAdapter implements BuildListener, CharsetTaskListener {
+public final class BuildListenerAdapter implements BuildListener {
 
     private final TaskListener delegate;
 
@@ -85,14 +84,6 @@ public final class BuildListenerAdapter implements BuildListener, CharsetTaskLis
 
     @Override public PrintWriter fatalError(String format, Object... args) {
         return delegate.fatalError(format, args);
-    }
-
-    @Override
-    public Charset getCharset() {
-        if (delegate instanceof CharsetTaskListener)
-            return ((CharsetTaskListener) delegate).getCharset();
-        else
-            return Charset.defaultCharset();
     }
 
     public static BuildListener wrap(TaskListener l) {

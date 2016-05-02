@@ -24,7 +24,6 @@
 package hudson;
 
 import hudson.Proc.LocalProc;
-import hudson.model.CharsetTaskListener;
 import hudson.model.Computer;
 import hudson.util.QuotedStringTokenizer;
 import jenkins.model.Jenkins;
@@ -50,7 +49,6 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.io.Serializable;
-import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.List;
@@ -814,16 +812,11 @@ public abstract class Launcher {
             for ( int idx = 0 ; idx < jobCmd.length; idx++ )
             	jobCmd[idx] = jobEnv.expand(ps.commands.get(idx));
 
-            Charset charset = Charset.defaultCharset();
-            if (listener instanceof CharsetTaskListener) {
-                charset = ((CharsetTaskListener) listener).getCharset();
-            }
-
             return new LocalProc(jobCmd, Util.mapToEnv(jobEnv),
                     ps.reverseStdin ?LocalProc.SELFPUMP_INPUT:ps.stdin,
                     ps.reverseStdout?LocalProc.SELFPUMP_OUTPUT:ps.stdout,
                     ps.reverseStderr?LocalProc.SELFPUMP_OUTPUT:ps.stderr,
-                    toFile(ps.pwd), charset);
+                    toFile(ps.pwd));
         }
 
         private File toFile(FilePath f) {

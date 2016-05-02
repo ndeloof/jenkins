@@ -25,7 +25,6 @@
 package hudson.util;
 
 import hudson.console.ConsoleNote;
-import hudson.model.CharsetTaskListener;
 import hudson.model.TaskListener;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -33,7 +32,6 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.Serializable;
-import java.nio.charset.Charset;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -43,7 +41,7 @@ import java.util.logging.Logger;
  */
 public class LogTaskListener extends AbstractTaskListener implements Serializable {
     
-    private final CharsetTaskListener delegate;
+    private final TaskListener delegate;
 
     public LogTaskListener(Logger logger, Level level) {
         delegate = new StreamTaskListener(new LogOutputStream(logger, level, new Throwable().getStackTrace()[1]));
@@ -67,11 +65,6 @@ public class LogTaskListener extends AbstractTaskListener implements Serializabl
 
     public PrintWriter fatalError(String format, Object... args) {
         return delegate.fatalError(format, args);
-    }
-
-    @Override
-    public Charset getCharset() {
-        return delegate.getCharset();
     }
 
     public void annotate(ConsoleNote ann) {

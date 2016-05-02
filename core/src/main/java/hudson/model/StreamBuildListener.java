@@ -41,10 +41,12 @@ import java.util.List;
  */
 public class StreamBuildListener extends StreamTaskListener implements BuildListener {
 
+    /** @deprecated charset is forced to UTF-8 */
     public StreamBuildListener(OutputStream out, Charset charset) {
         super(out, charset);
     }
 
+    /** @deprecated charset is forced to UTF-8 */
     public StreamBuildListener(File out, Charset charset) throws IOException {
         super(out, charset);
     }

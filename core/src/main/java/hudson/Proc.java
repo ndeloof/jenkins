@@ -210,13 +210,9 @@ public abstract class Proc {
          *      null to redirect stderr to stdout.
          */
         public LocalProc(String[] cmd,String[] env,InputStream in,OutputStream out,OutputStream err,File workDir) throws IOException {
-            this(cmd, env, in, out, err, workDir, Charset.defaultCharset());
-        }
-
-        public LocalProc(String[] cmd,String[] env,InputStream in,OutputStream out,OutputStream err,File workDir,Charset charset) throws IOException {
             this( calcName(cmd),
                   stderr(environment(new ProcessBuilder(cmd),env).directory(workDir), err==null || err== SELFPUMP_OUTPUT),
-                  in, out, err, charset );
+                  in, out, err);
         }
 
         private static ProcessBuilder stderr(ProcessBuilder pb, boolean redirectError) {
@@ -236,7 +232,7 @@ public abstract class Proc {
             return pb;
         }
 
-        private LocalProc( String name, ProcessBuilder procBuilder, InputStream in, OutputStream out, OutputStream err,Charset charset ) throws IOException {
+        private LocalProc( String name, ProcessBuilder procBuilder, InputStream in, OutputStream out, OutputStream err) throws IOException {
             Logger.getLogger(Proc.class.getName()).log(Level.FINE, "Running: {0}", name);
             this.name = name;
             this.out = out;
@@ -249,7 +245,7 @@ public abstract class Proc {
                 stdout = procInputStream;
                 copier = null;
             } else {
-                copier = new StreamCopyThread(name+": stdout copier", procInputStream, out, charset);
+                copier = new StreamCopyThread(name+": stdout copier", procInputStream, out);
                 copier.start();
                 stdout = null;
             }
@@ -273,7 +269,7 @@ public abstract class Proc {
                     copier2 = null;
                 } else {
                     stderr = null;
-                    copier2 = new StreamCopyThread(name+": stderr copier", procErrorStream, err, charset);
+                    copier2 = new StreamCopyThread(name+": stderr copier", procErrorStream, err);
                     copier2.start();
                 }
             } else {
