@@ -73,6 +73,7 @@ public class StreamCopyThread extends Thread {
                 // it doesn't make sense not to close InputStream that's already EOF-ed,
                 // so there's no 'closeIn' flag.
                 in.close();
+                out.flush();
                 if(closeOut)
                     out.close();
             }
