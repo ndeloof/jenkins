@@ -27,7 +27,9 @@ import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.XStreamException;
 import com.thoughtworks.xstream.converters.Converter;
 import com.thoughtworks.xstream.converters.UnmarshallingContext;
+import com.thoughtworks.xstream.io.AbstractDriver;
 import com.thoughtworks.xstream.io.StreamException;
+import com.thoughtworks.xstream.io.binary.BinaryStreamDriver;
 import com.thoughtworks.xstream.io.xml.XppDriver;
 import hudson.diagnosis.OldDataMonitor;
 import hudson.model.Descriptor;
@@ -45,9 +47,11 @@ import javax.xml.parsers.SAXParserFactory;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.Reader;
 import java.io.Writer;
 import java.io.StringWriter;
@@ -157,6 +161,34 @@ public final class XmlFile {
      *      if the XML representation is completely new.
      */
     public Object unmarshal( Object o ) throws IOException {
+        File f = new File(file.getAbsolutePath() + ".bin");
+        if (f.exists() && file.lastModified() <= f.lastModified()) {
+            LOGGER.log(Level.FINE, "Loading {} from binary cache file", file);
+            return unmarshalBinary(o, f);
+        } else {
+            o = unmarshalXml(o);
+            // Create a binary cache file, so that next load from disk will be faster
+            try (OutputStream out = new FileOutputStream(f)) {
+                xs.marshal(o, BINARY_DRIVER.createWriter(out));
+            }
+            return o;
+        }
+    }
+
+    private Object unmarshalBinary(Object o, File f) throws IOException {
+        InputStream in = new BufferedInputStream(new FileInputStream(f));
+        try {
+            return xs.unmarshal(BINARY_DRIVER.createReader(in), o);
+        } catch (XStreamException e) {
+            throw new IOException("Unable to read "+file,e);
+        } catch(Error e) {// mostly reflection errors
+            throw new IOException("Unable to read "+file,e);
+        } finally {
+            in.close();
+        }
+    }
+
+    private Object unmarshalXml(Object o) throws IOException {
         InputStream in = new BufferedInputStream(new FileInputStream(file));
         try {
             // TODO: expose XStream the driver from XStream
@@ -182,6 +214,17 @@ public final class XmlFile {
         } finally {
             w.abort();
         }
+
+        File f = new File(file.getAbsolutePath() + ".bin");
+        w = new AtomicFileWriter(f);
+        try {
+            xs.marshal(o, BINARY_DRIVER.createWriter(w));
+            w.commit();
+        } catch(StreamException e) {
+            throw new IOException(e);
+        } finally {
+            w.abort();
+        }
     }
 
     public boolean exists() {
@@ -190,6 +233,8 @@ public final class XmlFile {
 
     public void delete() {
         file.delete();
+        File f = new File(file.getAbsolutePath() + ".bin");
+        if (f.exists()) f.delete();
     }
     
     public void mkdirs() {
@@ -308,6 +353,9 @@ public final class XmlFile {
     private static final SAXParserFactory JAXP = SAXParserFactory.newInstance();
 
     private static final XppDriver DEFAULT_DRIVER = new XppDriver();
+
+    private static final AbstractDriver BINARY_DRIVER = new BinaryStreamDriver();
+
 
     static {
         JAXP.setNamespaceAware(true);
