@@ -53,6 +53,8 @@ public abstract class SaveableListener implements ExtensionPoint {
      */
     public void onChange(Saveable o, XmlFile file) {}
 
+    public void onDeclared(Saveable o, XmlFile file) {}
+
     /**
      * Registers this object as an active listener so that it can start getting
      * callbacks invoked.
@@ -86,6 +88,19 @@ public abstract class SaveableListener implements ExtensionPoint {
             }
         }
     }
+
+    public static void fireOnDeclared(Saveable o, XmlFile file) {
+        for (SaveableListener l : all()) {
+            try {
+                l.onDeclared(o,file);
+            } catch (ThreadDeath t) {
+                throw t;
+            } catch (Throwable t) {
+                Logger.getLogger(SaveableListener.class.getName()).log(Level.WARNING, null, t);
+            }
+        }
+    }
+
 
     /**
      * Returns all the registered {@link SaveableListener} descriptors.

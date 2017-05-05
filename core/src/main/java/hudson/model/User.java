@@ -180,9 +180,13 @@ public class User extends AbstractModelObject implements AccessControlled, Descr
      * Loads the other data from disk if it's available.
      */
     private synchronized void load() {
+        load(getConfigFile());
+    }
+
+    @Override
+    public void load(XmlFile config) {
         properties.clear();
 
-        XmlFile config = getConfigFile();
         try {
             if(config.exists())
                 config.unmarshal(this);

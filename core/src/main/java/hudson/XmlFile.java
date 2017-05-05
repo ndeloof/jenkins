@@ -31,10 +31,11 @@ import com.thoughtworks.xstream.io.StreamException;
 import com.thoughtworks.xstream.io.xml.Xpp3Driver;
 import hudson.diagnosis.OldDataMonitor;
 import hudson.model.Descriptor;
+import hudson.model.Saveable;
+import hudson.model.listeners.SaveableListener;
 import hudson.util.AtomicFileWriter;
 import hudson.util.XStream2;
-import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
+import org.apache.commons.io.IOUtils;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.Locator;
@@ -50,11 +51,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.io.Writer;
 import java.io.StringWriter;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.apache.commons.io.IOUtils;
 
 /**
  * Represents an XML data file that Jenkins uses as a data file.
@@ -71,7 +75,7 @@ import org.apache.commons.io.IOUtils;
  * value (if you let XStream create the object, such as
  * {@link #read()} &mdash; which is the majority), or to the value initialized by the
  * constructor (if the object is created via <tt>new</tt> and then its
- * value filled by XStream, such as {@link #unmarshal(Object)}.)
+ * value filled by XStream, such as {@link #unmarshal(Saveable)}.)
  *
  * <p>
  * Removing a field requires that you actually leave the field with
@@ -120,8 +124,19 @@ public final class XmlFile {
     }
 
     public XmlFile(XStream xs, File file) {
+        this(xs, file, null);
+    }
+
+    public XmlFile(File file, Saveable target) {
+        this(DEFAULT_XSTREAM, file, target);
+    }
+
+    public XmlFile(XStream xs, File file, Saveable target) {
         this.xs = xs;
         this.file = file;
+        if (this.file != null && target != null) {
+            SaveableListener.fireOnDeclared(target, this);
+        }
     }
 
     public File getFile() {
@@ -140,10 +155,18 @@ public final class XmlFile {
             LOGGER.fine("Reading "+file);
         }
         try (InputStream in = new BufferedInputStream(Files.newInputStream(file.toPath()))) {
-            return xs.fromXML(in);
+            Object o = xs.fromXML(in);
+            if (o instanceof Saveable) {
+                SaveableListener.fireOnDeclared((Saveable) o, this);
+            }
+            return o;
         } catch (XStreamException | Error | InvalidPathException e) {
             throw new IOException("Unable to read "+file,e);
         }
+    }
+
+    public Object unmarshal(Object o) throws IOException {
+        return unmarshal((Saveable) o, o);
     }
 
     /**
@@ -153,22 +176,44 @@ public final class XmlFile {
      *      The unmarshalled object. Usually the same as <tt>o</tt>, but would be different
      *      if the XML representation is completely new.
      */
-    public Object unmarshal( Object o ) throws IOException {
+    public Object unmarshal( Saveable o ) throws IOException {
+        return unmarshal(o, o);
+    }
+
+    /**
+     * In some special cases, the component state is actually hosted by a distinct object
+     */
+    public Object unmarshal( Saveable target, Object data ) throws IOException {
 
         try (InputStream in = new BufferedInputStream(Files.newInputStream(file.toPath()))) {
             // TODO: expose XStream the driver from XStream
-            return xs.unmarshal(DEFAULT_DRIVER.createReader(in), o);
+            SaveableListener.fireOnDeclared(target, this);
+            return xs.unmarshal(DEFAULT_DRIVER.createReader(in), data);
         } catch (XStreamException | Error | InvalidPathException e) {
             throw new IOException("Unable to read "+file,e);
         }
     }
 
-    public void write( Object o ) throws IOException {
+    @Deprecated
+    /** @deprecated  use {@link #write(Saveable)} */
+    public void write(Object o) throws IOException {
+        write((Saveable) o, o);
+    }
+
+    public void write(Saveable o) throws IOException {
+        write(o,o);
+    }
+
+    /**
+     * In some special cases, the component state is actually hosted by a distinct object
+     */
+    public void write(Saveable target, Object data) throws IOException {
+        SaveableListener.fireOnDeclared(target, this);
         mkdirs();
         AtomicFileWriter w = new AtomicFileWriter(file);
         try {
             w.write("<?xml version='1.0' encoding='UTF-8'?>\n");
-            xs.toXML(o,w);
+            xs.toXML(data,w);
             w.commit();
         } catch(StreamException e) {
             throw new IOException(e);

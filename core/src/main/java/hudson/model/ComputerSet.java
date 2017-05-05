@@ -79,8 +79,39 @@ public final class ComputerSet extends AbstractModelObject implements Describabl
      */
     private static final Saveable MONITORS_OWNER = new Saveable() {
         public void save() throws IOException {
-            getConfigFile().write(monitors);
+            getConfigFile().write(this, monitors);
             SaveableListener.fireOnChange(this, getConfigFile());
+        }
+
+        @Override
+        public void load(XmlFile xf) throws IOException {
+            DescribableList<NodeMonitor,Descriptor<NodeMonitor>> r
+                    = new DescribableList<NodeMonitor, Descriptor<NodeMonitor>>(Saveable.NOOP);
+
+            // load persisted monitors
+            if(xf.exists()) {
+                DescribableList<NodeMonitor,Descriptor<NodeMonitor>> persisted =
+                        (DescribableList<NodeMonitor,Descriptor<NodeMonitor>>) xf.read();
+                List<NodeMonitor> sanitized = new ArrayList<NodeMonitor>();
+                for (NodeMonitor nm : persisted) {
+                    try {
+                        nm.getDescriptor();
+                        sanitized.add(nm);
+                    } catch (Throwable e) {
+                        // the descriptor didn't load? see JENKINS-15869
+                    }
+                }
+                r.replaceBy(sanitized);
+            }
+
+            // if we have any new monitors, let's add them
+            for (Descriptor<NodeMonitor> d : NodeMonitor.all())
+                if(r.get(d)==null) {
+                    NodeMonitor i = createDefaultInstance(d,false);
+                    if(i!=null)
+                        r.add(i);
+                }
+            monitors.replaceBy(r.toList());
         }
     };
 
@@ -430,34 +461,7 @@ public final class ComputerSet extends AbstractModelObject implements Describabl
 
     static {
         try {
-            DescribableList<NodeMonitor,Descriptor<NodeMonitor>> r
-                    = new DescribableList<NodeMonitor, Descriptor<NodeMonitor>>(Saveable.NOOP);
-
-            // load persisted monitors
-            XmlFile xf = getConfigFile();
-            if(xf.exists()) {
-                DescribableList<NodeMonitor,Descriptor<NodeMonitor>> persisted =
-                        (DescribableList<NodeMonitor,Descriptor<NodeMonitor>>) xf.read();
-                List<NodeMonitor> sanitized = new ArrayList<NodeMonitor>();
-                for (NodeMonitor nm : persisted) {
-                    try {
-                        nm.getDescriptor();
-                        sanitized.add(nm);
-                    } catch (Throwable e) {
-                        // the descriptor didn't load? see JENKINS-15869
-                    }
-                }
-                r.replaceBy(sanitized);
-            }
-
-            // if we have any new monitors, let's add them
-            for (Descriptor<NodeMonitor> d : NodeMonitor.all())
-                if(r.get(d)==null) {
-                    NodeMonitor i = createDefaultInstance(d,false);
-                    if(i!=null)
-                        r.add(i);
-                }
-            monitors.replaceBy(r.toList());
+            MONITORS_OWNER.load(getConfigFile());
         } catch (Throwable x) {
             LOGGER.log(Level.WARNING, "Failed to instantiate NodeMonitors", x);
         }

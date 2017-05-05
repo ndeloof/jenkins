@@ -51,9 +51,13 @@ public class JenkinsLocationConfiguration extends GlobalConfiguration {
 
     @Override
     public synchronized void load() {
+        load(getConfigFile());
+    }
+
+    @Override
+    public void load(XmlFile file) {
         // for backward compatibility, if we don't have our own data yet, then
         // load from Mailer.
-        XmlFile file = getConfigFile();
         if(!file.exists()) {
             XStream2 xs = new XStream2();
             xs.addCompatibilityAlias("hudson.tasks.Mailer$DescriptorImpl",JenkinsLocationConfiguration.class);

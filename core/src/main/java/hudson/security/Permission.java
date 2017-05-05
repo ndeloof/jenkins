@@ -47,7 +47,8 @@ import org.jvnet.localizer.Localizable;
  * @author Kohsuke Kawaguchi
  * @see <a href="https://wiki.jenkins-ci.org/display/JENKINS/Making+your+plugin+behave+in+secured+Jenkins">Plugins in secured Jenkins</a>
  */
-public final class Permission {
+public final class
+Permission {
 
     /**
      * Comparator that orders {@link Permission} objects based on their ID.

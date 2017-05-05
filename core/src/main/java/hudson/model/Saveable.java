@@ -24,6 +24,7 @@
 package hudson.model;
 
 import hudson.BulkChange;
+import hudson.XmlFile;
 import hudson.model.listeners.SaveableListener;
 import java.io.IOException;
 
@@ -47,6 +48,15 @@ public interface Saveable {
      *      if the persistence failed.
      */
     void save() throws IOException;
+
+    /**
+     * load or reload component state from disk, passing associated {@link XmlFile} for convenience
+     * @param file
+     * @throws IOException
+     */
+    default void load(XmlFile file) throws IOException {
+        file.unmarshal(this);
+    }
 
     /**
      * {@link Saveable} that doesn't save anything.

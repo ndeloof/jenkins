@@ -834,7 +834,7 @@ public class UpdateCenter extends AbstractModelObject implements Saveable, OnMas
     public synchronized void save() {
         if(BulkChange.contains(this))   return;
         try {
-            getConfigFile().write(sites);
+            getConfigFile().write(this, sites);
             SaveableListener.fireOnChange(this, getConfigFile());
         } catch (IOException e) {
             LOGGER.log(Level.WARNING, "Failed to save "+getConfigFile(),e);
@@ -845,10 +845,14 @@ public class UpdateCenter extends AbstractModelObject implements Saveable, OnMas
      * Loads the data from the disk into this object.
      */
     public synchronized void load() throws IOException {
-        XmlFile file = getConfigFile();
+        load(getConfigFile());
+    }
+
+    @Override
+    public void load(XmlFile file) throws IOException {
         if(file.exists()) {
             try {
-                sites.replaceBy(((PersistedList)file.unmarshal(sites)).toList());
+                sites.replaceBy(((PersistedList)file.unmarshal(this, sites)).toList());
             } catch (IOException e) {
                 LOGGER.log(Level.WARNING, "Failed to load "+file, e);
             }

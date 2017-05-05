@@ -89,7 +89,7 @@ import javax.xml.transform.stream.StreamSource;
 
 import static hudson.model.queue.Executables.getParentOf;
 import hudson.model.queue.SubTask;
-import java.lang.reflect.InvocationTargetException;
+
 import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
 import org.apache.commons.io.FileUtils;
 import org.kohsuke.accmod.Restricted;
@@ -812,10 +812,15 @@ public abstract class AbstractItem extends Actionable implements Item, HttpDelet
      */
     @RequirePOST
     public void doReload() throws IOException {
+        load(getConfigFile());
+    }
+
+    @Override
+    public void load(XmlFile file) throws IOException {
         checkPermission(CONFIGURE);
 
         // try to reflect the changes by reloading
-        getConfigFile().unmarshal(this);
+        file.unmarshal(this);
         Items.whileUpdatingByXml(new NotReallyRoleSensitiveCallable<Void, IOException>() {
             @Override
             public Void call() throws IOException {
@@ -827,7 +832,6 @@ public abstract class AbstractItem extends Actionable implements Item, HttpDelet
 
         SaveableListener.fireOnChange(this, getConfigFile());
     }
-
 
     /**
      * {@inheritDoc}

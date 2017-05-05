@@ -35,6 +35,7 @@ import com.google.inject.Injector;
 import com.thoughtworks.xstream.XStream;
 import hudson.*;
 import hudson.Launcher.LocalLauncher;
+import hudson.slaves.EphemeralNode;
 import jenkins.AgentProtocol;
 import jenkins.diagnostics.URICheckEncodingMonitor;
 import jenkins.util.SystemProperties;
@@ -2984,7 +2985,7 @@ public class Jenkins extends AbstractCIBase implements DirectlyModifiableTopLeve
      * The file we save our configuration.
      */
     private XmlFile getConfigFile() {
-        return new XmlFile(XSTREAM, new File(root,"config.xml"));
+        return new XmlFile(XSTREAM, new File(root,"config.xml"), this);
     }
 
     public int getNumExecutors() {
@@ -3020,7 +3021,11 @@ public class Jenkins extends AbstractCIBase implements DirectlyModifiableTopLeve
     }
 
     private void loadConfig() throws IOException {
-        XmlFile cfg = getConfigFile();
+        load(getConfigFile());
+    }
+
+    @Override
+    public void load(XmlFile cfg) throws IOException {
         if (cfg.exists()) {
             // reset some data that may not exist in the disk file
             // so that we can take a proper compensation action later.
@@ -3030,6 +3035,7 @@ public class Jenkins extends AbstractCIBase implements DirectlyModifiableTopLeve
             // load from disk
             cfg.unmarshal(Jenkins.this);
         }
+        updateComputerList();
     }
 
     private synchronized TaskBuilder loadTasks() throws IOException {
@@ -4722,6 +4728,10 @@ public class Jenkins extends AbstractCIBase implements DirectlyModifiableTopLeve
         @Override
         public String getName() {
             return "";
+        }
+
+        private void setNode(Jenkins node) {
+            super.setNode(node);
         }
 
         @Override

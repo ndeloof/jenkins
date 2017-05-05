@@ -393,7 +393,7 @@ public class Queue extends ResourceController implements Saveable {
             } else {
                 queueFile = getXMLQueueFile();
                 if (queueFile.exists()) {
-                    Object unmarshaledObj = new XmlFile(XSTREAM, queueFile).read();
+                    Object unmarshaledObj = new XmlFile(XSTREAM, queueFile, this).read();
                     List items;
 
                     if (unmarshaledObj instanceof State) {
@@ -473,7 +473,7 @@ public class Queue extends ResourceController implements Saveable {
             }
 
             try {
-                queueFile.write(state);
+                queueFile.write(this, state);
             } catch (IOException e) {
                 LOGGER.log(Level.WARNING, "Failed to write out the queue file " + getXMLQueueFile(), e);
             }

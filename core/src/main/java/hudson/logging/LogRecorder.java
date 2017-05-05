@@ -310,7 +310,12 @@ public class LogRecorder extends AbstractModelObject implements Saveable {
      * Loads the settings from a file.
      */
     public synchronized void load() throws IOException {
-        getConfigFile().unmarshal(this);
+        load(getConfigFile());
+    }
+
+    @Override
+    public void load(XmlFile file) throws IOException {
+        file.unmarshal(this);
         for (Target t : targets)
             t.enable();
     }
@@ -352,7 +357,7 @@ public class LogRecorder extends AbstractModelObject implements Saveable {
      * The file we save our configuration.
      */
     private XmlFile getConfigFile() {
-        return new XmlFile(XSTREAM, new File(LogRecorderManager.configDir(), name + ".xml"));
+        return new XmlFile(XSTREAM, new File(LogRecorderManager.configDir(), name + ".xml"), this);
     }
 
     /**
