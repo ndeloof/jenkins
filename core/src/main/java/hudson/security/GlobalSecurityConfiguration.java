@@ -52,6 +52,8 @@ import org.jenkinsci.Symbol;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.interceptor.RequirePOST;
@@ -82,7 +84,7 @@ public class GlobalSecurityConfiguration extends ManagementLink implements Descr
      */
     @Restricted(NoExternalUse.class)
     public boolean isSlaveAgentPortEnforced() {
-        return Jenkins.getInstance().isSlaveAgentPortEnforced();
+        return Jenkins.get().isSlaveAgentPortEnforced();
     }
 
     public Set<String> getAgentProtocols() {
@@ -100,27 +102,40 @@ public class GlobalSecurityConfiguration extends ManagementLink implements Descr
         try{
             boolean result = configure(req, req.getSubmittedForm());
             LOGGER.log(Level.FINE, "security saved: "+result);
-            Jenkins.getInstance().save();
+            Jenkins.get().save();
             FormApply.success(req.getContextPath()+"/manage").generateResponse(req, rsp, null);
         } finally {
             bc.commit();
         }
     }
 
+    private transient UseSecurity useSecurity;
+    private transient MarkupFormatter markupFormatter;
+    private transient ServerTcpPort slaveAgentPort;
+    private transient Set<String> protocols;
+
     public boolean configure(StaplerRequest req, JSONObject json) throws hudson.model.Descriptor.FormException {
-        // for compatibility reasons, the actual value is stored in Jenkins
-        Jenkins j = Jenkins.getInstance();
+
+        Jenkins j = Jenkins.get();
         j.checkPermission(Jenkins.ADMINISTER);
-        if (json.has("useSecurity")) {
-            JSONObject security = json.getJSONObject("useSecurity");
-            j.setDisableRememberMe(security.optBoolean("disableRememberMe", false));
-            j.setSecurityRealm(SecurityRealm.all().newInstanceFromRadioList(security, "realm"));
-            j.setAuthorizationStrategy(AuthorizationStrategy.all().newInstanceFromRadioList(security, "authorization"));    
+
+        useSecurity = null;
+        markupFormatter = null;
+        protocols = new TreeSet<>();
+        req.bindJSON(this, json);
+
+        // for compatibility reasons, the actual values are stored in Jenkins
+
+        if (useSecurity != null) {
+            j.setDisableRememberMe(useSecurity.disableRememberMe);
+            j.setSecurityRealm(useSecurity.securityRealm);
+            j.setAuthorizationStrategy(useSecurity.authorization);
+
         } else {
             j.disableSecurity();
         }
 
-        if (json.has("markupFormatter")) {
+        if (markupFormatter != null) {
             j.setMarkupFormatter(req.bindJSON(MarkupFormatter.class, json.getJSONObject("markupFormatter")));
         } else {
             j.setMarkupFormatter(null);
@@ -129,23 +144,13 @@ public class GlobalSecurityConfiguration extends ManagementLink implements Descr
         // Agent settings
         if (!isSlaveAgentPortEnforced()) {
             try {
-                j.setSlaveAgentPort(new ServerTcpPort(json.getJSONObject("slaveAgentPort")).getPort());
+                j.setSlaveAgentPort(slaveAgentPort.getPort());
             } catch (IOException e) {
                 throw new hudson.model.Descriptor.FormException(e, "slaveAgentPortType");
             }
         }
         Set<String> agentProtocols = new TreeSet<>();
-        if (json.has("agentProtocol")) {
-            Object protocols = json.get("agentProtocol");
-            if (protocols instanceof JSONArray) {
-                for (int i = 0; i < ((JSONArray) protocols).size(); i++) {
-                    agentProtocols.add(((JSONArray) protocols).getString(i));
-                }
-            } else {
-                agentProtocols.add(protocols.toString());
-            }
-        }
-        j.setAgentProtocols(agentProtocols);
+        j.setAgentProtocols(protocols);
 
         // persist all the additional security configs
         boolean result = true;
@@ -155,7 +160,27 @@ public class GlobalSecurityConfiguration extends ManagementLink implements Descr
         
         return result;
     }
-    
+
+    @DataBoundSetter
+    public void setUseSecurity(UseSecurity useSecurity) {
+        this.useSecurity = useSecurity;
+    }
+
+    @DataBoundSetter
+    public void setMarkupFormatter(MarkupFormatter markupFormatter) {
+        this.markupFormatter = markupFormatter;
+    }
+
+    @DataBoundSetter
+    public void setSlaveAgentPort(ServerTcpPort slaveAgentPort) {
+        this.slaveAgentPort = slaveAgentPort;
+    }
+
+    @DataBoundSetter
+    public void setAgentProtocols(Set<String> protocols) {
+        this.protocols = protocols;
+    }
+
     private boolean configureDescriptor(StaplerRequest req, JSONObject json, Descriptor<?> d) throws FormException {
         // collapse the structure to remain backward compatible with the JSON structure before 1.
         String name = d.getJsonSafeClassName();
@@ -212,4 +237,19 @@ public class GlobalSecurityConfiguration extends ManagementLink implements Descr
             return Messages.GlobalSecurityConfiguration_DisplayName();
         }
     }
+
+
+    public static class UseSecurity {
+        private boolean disableRememberMe;
+        private SecurityRealm securityRealm;
+        private AuthorizationStrategy authorization;
+
+        @DataBoundConstructor
+        public UseSecurity(boolean disableRememberMe, SecurityRealm securityRealm, AuthorizationStrategy authorization) {
+            this.disableRememberMe = disableRememberMe;
+            this.securityRealm = securityRealm;
+            this.authorization = authorization;
+        }
+    }
+
 }
